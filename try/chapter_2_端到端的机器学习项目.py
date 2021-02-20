@@ -145,22 +145,22 @@ housing_tr = pd.DataFrame(X, columns=housing_num.columns)
 
 
 # 处理文本和分类属性
-# from sklearn.preprocessing import LabelEncoder
-# encoder = LabelEncoder() # 能将文本label转化成数字
-# housing_cat = housing["ocean_proximity"]
-# housing_cat_encoded = encoder.fit_transform(housing_cat)
-# print(housing_cat_encoded)
-# print(encoder.classes_)
-#
-# from sklearn.preprocessing import OneHotEncoder
-# encoder = OneHotEncoder() # 转化成one-hot向量
-# housing_cat_1hot = encoder.fit_transform((housing_cat_encoded.reshape(-1, 1)))
-# print(housing_cat_1hot)
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder() # 能将文本label转化成数字
+housing_cat = housing["ocean_proximity"]
+housing_cat_encoded = encoder.fit_transform(housing_cat)
+print(housing_cat_encoded)
+print(encoder.classes_)
+
+from sklearn.preprocessing import OneHotEncoder
+encoder = OneHotEncoder() # 转化成one-hot向量
+housing_cat_1hot = encoder.fit_transform((housing_cat_encoded.reshape(-1, 1)))
+print(housing_cat_1hot)
 #
 from sklearn.preprocessing import LabelBinarizer
-# encoder = LabelEncoder()
-# housing_cat_1hot = encoder.fit_transform(housing_cat)
-# print(housing_cat_1hot)
+encoder = LabelEncoder()
+housing_cat_1hot = encoder.fit_transform(housing_cat)
+print(housing_cat_1hot)
 
 
 # 自定义转化器组合属性特征
@@ -294,3 +294,42 @@ forest_reg_scores = cross_val_score(forest_reg, housing_prepared, housing_labels
                                     scoring="neg_mean_squared_error", cv=kfold)
 forest_rmse = np.sqrt(-forest_reg_scores)
 display_scores(forest_rmse)
+
+# 微调模型
+from sklearn.model_selection import GridSearchCV
+
+param_grid = [
+    {"n_estimators": [3, 10, 30], "max_features": [2, 4, 6, 8]},
+    {"bootstrap": [False], "n_estimators": [3, 10], "max_features": [2, 3, 4]}
+]
+
+forest_reg = RandomForestRegressor()
+grid_search = GridSearchCV(forest_reg, param_grid, cv=5, scoring="neg_mean_squared_error")
+grid_search.fit(housing_prepared, housing_labels)
+print(grid_search.best_params_)
+print(grid_search.best_estimator_)
+cvres = grid_search.cv_results_
+for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):
+    print(np.sqrt(-mean_score), params)
+
+features_importances = grid_search.best_estimator_.feature_importances_
+print(features_importances)
+
+extra_attribs = ["rooms_per_hhold", "pop_per_hhold", "bedrooms_per_room"]
+cat_one_hot_attribs = list(encoder.classes_)
+attributes = num_attribs + extra_attribs + cat_one_hot_attribs
+print(sorted(zip(features_importances, attributes), reverse=True))
+
+
+# 通过测试集评估系统
+final_model = grid_search.best_estimator_
+
+X_test = strat_test_set.drop("median_house_value", axis=1)
+y_test = strat_test_set["median_house_value"].copy()
+
+X_test_prepared = full_pipeline.transform(X_test)
+final_predictions = final_model.predict(X_test_prepared)
+
+final_mse = mean_squared_error(y_test, final_predictions)
+final_rmse = np.sqrt(final_mse)
+print("final rmse", final_rmse)
