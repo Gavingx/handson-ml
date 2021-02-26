@@ -20,6 +20,7 @@ from pathlib import Path
 
 project_path = Path(__file__).parent.parent
 
+
 # 数据集
 if not os.path.exists(str(Path(project_path, "datasets/train.csv"))) or \
     not os.path.exists(str(Path(project_path, "datasets/test.csv"))):
